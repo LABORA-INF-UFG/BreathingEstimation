@@ -22,7 +22,7 @@ class BreathEstimation:
         self.fs = 100
 
         # Buffer de armazenamento
-        self._buffer = np.zeros((1000, 171))  # referente a 20 segundos de dados amostrados em 100Hz
+        self._buffer = np.zeros((2000, 171))  # referente a 20 segundos de dados amostrados em 100Hz
         self._buffer_preenchido = 0
 
         # ---- Definição de parâmetros ----
@@ -39,6 +39,12 @@ class BreathEstimation:
 
         # Séries da PCA anteriores a esta serão ignoradas:
         self.firstPCA = 1  # python começa a contar do 0
+
+        self.potenciasPCA = []
+
+    def salva_potenciasPCA(self, title):
+        self.potenciasPCA = np.array(self.potenciasPCA).reshape(-1, self.signals - self.firstPCA)
+        np.savetxt(f'{title}.txt', self.potenciasPCA, delimiter=',')
 
     def get_csi(self):
         return self._buffer
@@ -136,6 +142,7 @@ class BreathEstimation:
             fftPCA = np.fft.fft(csi_pca[:, componente_pca])
             fftPCA = np.abs(fftPCA[intervaloMin:intervaloMax + 1])
             max_tmp = fftPCA.max()
+            self.potenciasPCA.append(max_tmp)
             max_idx_tmp = np.where(fftPCA == max_tmp)
 
             if max_tmp > maxFFT:
@@ -157,3 +164,38 @@ class BreathEstimation:
             array_copy = np.pad(array_copy, windowsize // 2, mode='edge')
             _for_hampel_jit(array_copy, windowsize, n)
         return array_copy[windowsize // 2:-windowsize // 2]
+
+
+class Apneia:
+    def __init__(self, qtd_de_estimativas: int=20):
+        self.buffer = []  # acumulador
+        self.estimativas_atuais = np.zeros(5)
+        self.medianaEstimativas = -1
+        self.qtd_de_estimativas = qtd_de_estimativas
+
+    def registra_estimativa(self, estimativa):
+        if len(self.buffer) < self.qtd_de_estimativas:
+            self.buffer.append(estimativa)
+            if self.qtd_de_estimativas - len(self.buffer) <= 5:
+                self.estimativas_atuais = np.roll(self.estimativas_atuais, -1)
+                self.estimativas_atuais[-1] = estimativa
+
+        else:
+            self.estimativas_atuais = np.roll(self.estimativas_atuais, -1)
+            self.estimativas_atuais[-1] = estimativa
+
+    def apneia(self):
+        if len(self.buffer) < self.qtd_de_estimativas:
+            print('Aguardando mais dados...')
+            return False
+        else:
+            self.medianaEstimativas = np.median(self.buffer)
+            resultado = np.logical_or(self.estimativas_atuais > self.medianaEstimativas + 0.1,
+                                      self.estimativas_atuais < self.medianaEstimativas - 0.1)
+            print(self.estimativas_atuais, self.medianaEstimativas)
+            resultado = np.where(resultado == True)[0]
+            if len(resultado) > 3:
+                print('\033[1;31;40mApneia detectada!\033[0m')
+                return True
+            else:
+                return False

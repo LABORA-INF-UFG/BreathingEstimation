@@ -1,9 +1,10 @@
-from funcoes import BreathEstimation
+from funcoes import BreathEstimation, Apneia
 import ast
 import time
 
 
-file = r"F:\Dados CSI\Apneia7_1-Luiz Fernando-Intel 5300-Normal-Sentado_ladoDir-FFZ-_1m-Intel 5300-28_09_2022-09_17-99_94Hz-13R-69bpm.txt"
+file = r"F:\Projetos\Dados CSI\Apneia1_0-Alex-Intel 5300-Rapida-Sentado_frente-FFZ-_1m-Intel 5300-22_09_2022-18_37-99_93Hz-32R-87bpm.txt"
+txt = "1_1"
 with open(file, "r") as f:
     dat = f.readlines()
 
@@ -12,21 +13,22 @@ tam = len(dat)
 
 
 def main():
-
     # instanciando o objeto de processamento
     estimador = BreathEstimation()
+    apneia = Apneia(qtd_de_estimativas=20)
     pkts_recv = 0
     # recebendo os pacotes
     while True:
         start = time.time()
         #####################################
         if pkts_recv >= tam:                #
-            pkts_recv = 0                   #
+            #estimador.salva_potenciasPCA(txt)
+            break                           #
         #####################################
         estimador.recebe_pacote_csi(dat[pkts_recv])
         pkts_recv += 1
 
-        if pkts_recv >= estimador.fs * 10 and pkts_recv % estimador.fs == 0:
+        if pkts_recv >= estimador.fs * 20 and pkts_recv % estimador.fs == 0:
             # calculando a diferença de fase
             phase_diff = estimador.diferenca_de_fase(estimador.get_csi())
 
@@ -50,6 +52,8 @@ def main():
             del CSI_pca
 
             print("\033[1;31;40mRespiração estimada:\033[0m", float(freq_resp_hz) * 90)
+            apneia.registra_estimativa(float(freq_resp_hz) * 90)
+            ocorrencia = apneia.apneia()
             print(f"Tempo de execução {pkts_recv}:", time.time() - start)
         time.sleep(0.01)
 
