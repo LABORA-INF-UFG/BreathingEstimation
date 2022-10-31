@@ -158,6 +158,7 @@ class BreathEstimation:
 
         # estimando taxa respiratória:
         freq_resp = fftFreq[maxIndex]
+        print(fftFreq[intervaloMin:intervaloMax])
         return freq_resp
 
     def hampel_jit(self, array, windowsize, n=3):
@@ -176,6 +177,7 @@ class BreathEstimation:
 class Apneia:
     def __init__(self, qtd_de_estimativas: int = 20):
         self.buffer = []  # acumulador (estático, ou seja, apenas das N primeiras estimativas, não muda)
+        self.len_buffer = 0
         self.estimativas_atuais = np.zeros(5)
         self.medianaEstimativas = -1
         self.qtd_de_estimativas = qtd_de_estimativas
@@ -187,8 +189,9 @@ class Apneia:
         :param estimativa: float com a estimativa de frequência de respiração
         :return: None
         """
-        if len(self.buffer) < self.qtd_de_estimativas:
+        if self.len_buffer < self.qtd_de_estimativas:
             self.buffer.append(estimativa)
+            self.len_buffer = len(self.buffer)
             if self.qtd_de_estimativas - len(self.buffer) <= 5:
                 self.estimativas_atuais = np.roll(self.estimativas_atuais, -1)
                 self.estimativas_atuais[-1] = estimativa
