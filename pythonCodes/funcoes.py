@@ -61,6 +61,13 @@ class BreathEstimation:
             self._buffer_preenchido += 1
 
     def diferenca_de_fase(self, csi):
+        """
+        Essa função tem como objetivo calcular a diferença de fase entre as subportadoras.
+        Executa o cálculo de subtração entre subportadoras homólogas em antenas diferentes.
+        Também executa o unwrap (desembrulhar) das fases e a centralização em zero dos valores (subtração da média).
+        :param csi: numpy array de formato ou shape: (pacotes, subportadoras)
+        :return: numpy array de shape: (pacotes, num_tones)
+        """
         phase1 = csi[:, :57]
         phase2 = csi[:, 57:114]
         CSIiDiff = phase1 - phase2
@@ -167,13 +174,19 @@ class BreathEstimation:
 
 
 class Apneia:
-    def __init__(self, qtd_de_estimativas: int=20):
-        self.buffer = []  # acumulador
+    def __init__(self, qtd_de_estimativas: int = 20):
+        self.buffer = []  # acumulador (estático, ou seja, apenas das N primeiras estimativas, não muda)
         self.estimativas_atuais = np.zeros(5)
         self.medianaEstimativas = -1
         self.qtd_de_estimativas = qtd_de_estimativas
 
-    def registra_estimativa(self, estimativa):
+    def registra_estimativa(self, estimativa: float):
+        """
+        Essa função registra a estimativa de frequência de respiração e registra em um buffer até enchê-lo.
+        Caso o buffer esteja cheio, a estimativa é armazenada em um vetor que guarda sempre as 5 estimativas mais recentes.
+        :param estimativa: float com a estimativa de frequência de respiração
+        :return: None
+        """
         if len(self.buffer) < self.qtd_de_estimativas:
             self.buffer.append(estimativa)
             if self.qtd_de_estimativas - len(self.buffer) <= 5:
@@ -185,11 +198,17 @@ class Apneia:
             self.estimativas_atuais[-1] = estimativa
 
     def apneia(self):
-        if len(self.buffer) < self.qtd_de_estimativas:
+        """
+        Essa função calcula se há indício de uma apneia ou não. Para isso, ela usa o buffer de estimativas armazenadas
+        e calcula a mediana delas. Caso mais de três estimativas recentes estejam diferentes da mediana, é acusado como
+        possível apneia.
+        :return: boolean indicando a presença ou não de apneia
+        """
+        if len(self.buffer) < self.qtd_de_estimativas:  # se o buffer ainda não está com a qtd necessária de estimativas
             print('Aguardando mais dados...')
             return False
         else:
-            self.medianaEstimativas = np.median(self.buffer)
+            self.medianaEstimativas = np.median(self.buffer)  # calcula a mediana das estimativas do buffer
             resultado = np.logical_or(self.estimativas_atuais > self.medianaEstimativas + 0.1,
                                       self.estimativas_atuais < self.medianaEstimativas - 0.1)
             print(self.estimativas_atuais, self.medianaEstimativas)
