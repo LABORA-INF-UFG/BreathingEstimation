@@ -41,6 +41,7 @@ class BreathEstimation:
         self.firstPCA = 1  # python começa a contar do 0
 
         self.potenciasPCA = []
+        self.buffer_plot = None
 
     def salva_potenciasPCA(self, title):
         self.potenciasPCA = np.array(self.potenciasPCA).reshape(-1, self.signals - self.firstPCA)
@@ -113,6 +114,7 @@ class BreathEstimation:
         ################### não usei 3 / (100/2), pois já declaramos o fs na funcao ############
         filter = signal.butter(2, 3, 'low', fs=self.fs, output='sos')
         CSI_filtered = signal.sosfilt(filter, csi)
+        self.buffer_plot = CSI_filtered.copy()
         return CSI_filtered
 
     def pca(self, csi):
@@ -158,7 +160,7 @@ class BreathEstimation:
 
         # estimando taxa respiratória:
         freq_resp = fftFreq[maxIndex]
-        print(fftFreq[intervaloMin:intervaloMax])
+        #print(fftFreq[intervaloMin:intervaloMax])
         return freq_resp
 
     def hampel_jit(self, array, windowsize, n=3):
@@ -198,7 +200,9 @@ class Apneia:
 
         else:
             self.estimativas_atuais = np.roll(self.estimativas_atuais, -1)
+            self.buffer = np.roll(self.buffer, -1)
             self.estimativas_atuais[-1] = estimativa
+            self.buffer[-1] = estimativa
 
     def apneia(self):
         """
@@ -214,7 +218,7 @@ class Apneia:
             self.medianaEstimativas = np.median(self.buffer)  # calcula a mediana das estimativas do buffer
             resultado = np.logical_or(self.estimativas_atuais > self.medianaEstimativas + 0.1,
                                       self.estimativas_atuais < self.medianaEstimativas - 0.1)
-            print(self.estimativas_atuais, self.medianaEstimativas)
+            print(f"Mediana das estimativas armazenadas: {self.medianaEstimativas}")
             resultado = np.where(resultado == True)[0]
             if len(resultado) > 3:
                 print('\033[1;31;40mApneia detectada!\033[0m')
