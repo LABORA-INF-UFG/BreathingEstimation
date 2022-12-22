@@ -20,10 +20,12 @@ class BreathEstimation:
 
         # Frequência de amostragem
         self.fs = 100
+        self.segundos_buffer = 50
 
         # Buffer de armazenamento
-        self._buffer = np.zeros((2000, 171))  # referente a 20 segundos de dados amostrados em 100Hz
-        self._buffer_preenchido = 0
+        self._buffer = np.zeros((self.segundos_buffer * self.fs, 171))
+        self.pkt_count = 0
+        self.buffer_preenchido = False
 
         # ---- Definição de parâmetros ----
         # Número de sinais do PCA
@@ -53,13 +55,15 @@ class BreathEstimation:
     def recebe_pacote_csi(self, pkt):
         # Recebe um pacote de dados CSI e armazena no buffer
         csi = pkt.get("CSI").get("Phase")
-        if self._buffer_preenchido == self._buffer.shape[0]:
+        if self.pkt_count == self._buffer.shape[0]:
             self._buffer = np.roll(self._buffer, -1, axis=0)  # desloca os elementos do buffer, depende da ordem linha coluna
             self._buffer[-1, :] = csi
+            if not self.buffer_preenchido:
+                self.buffer_preenchido = True
 
         else:
-            self._buffer[self._buffer_preenchido, :] = csi
-            self._buffer_preenchido += 1
+            self._buffer[self.pkt_count, :] = csi
+            self.pkt_count += 1
 
     def diferenca_de_fase(self, csi):
         """
